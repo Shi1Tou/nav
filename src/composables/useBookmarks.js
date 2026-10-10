@@ -1,12 +1,15 @@
 import { ref, computed } from 'vue'
 import { useAuth } from './useAuth'
 import { useToast } from './useToast'
+import { defaultCategories, defaultBookmarks } from '../data/defaultBookmarks'
 
 const categories = ref([])
 const bookmarks = ref([])
 const searchQuery = ref('')
 const searchCategoryId = ref(null) // 分类过滤
 const searchTags = ref([]) // 标签过滤
+// 纯静态部署标记（无后端 API 时为 true，使用内置常用书签）
+const isStaticMode = ref(false)
 
 export function useBookmarks() {
   const { getAuthHeaders, logout, apiRequest } = useAuth()
@@ -71,12 +74,22 @@ export function useBookmarks() {
   const fetchData = async () => {
     try {
       const authHeaders = getAuthHeaders()
-      
+
       // 获取分类
       const categoriesRes = await fetch('/api/categories', {
         headers: authHeaders
       })
-      
+
+      // 纯静态部署降级：EdgeOne Pages 等无后端环境下，/api/* 会被 SPA 回退规则返回 index.html
+      // 此时 Content-Type 不是 application/json，自动切换到内置常用书签数据
+      const contentType = categoriesRes.headers.get('content-type') || ''
+      if (!contentType.includes('application/json')) {
+        isStaticMode.value = true
+        categories.value = defaultCategories
+        bookmarks.value = defaultBookmarks
+        return
+      }
+
       if (categoriesRes.status === 401) {
         if (authHeaders.Authorization) {
           logout()
@@ -265,7 +278,7 @@ export function useBookmarks() {
         await fetchData()
         return { success: true }
       }
-      return { success: false, error: '删除失败' }
+      return { success: false, error: result.error || '删除失败' }
     } catch (error) {
       if (error.message === 'Token expired') {
         return { success: false, error: '登录已过期，请重新登录' }
@@ -380,6 +393,7 @@ export function useBookmarks() {
     filteredBookmarks,
     bookmarksByCategory,
     allTags,
+    isStaticMode,
     fetchData,
     addBookmark,
     updateBookmark,
