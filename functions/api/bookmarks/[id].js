@@ -1,100 +1,43 @@
-// PUT update bookmark
+// PUT/DELETE /api/bookmarks/:id  —— 编辑 / 删除书签（需登录）
+const KEY = 'bookmarks';
+async function loadList(kv) { const r = await kv.get(KEY); return r ? JSON.parse(r) : []; }
+async function saveList(kv, list) { await kv.put(KEY, JSON.stringify(list)); }
+async function requireAuth(context) {
+  const kv = context.env.my_kv || globalThis.my_kv;
+  const a = context.request.headers.get('Authorization') || '';
+  const m = a.match(/^Bearer\s+(.+)$/);
+  if (!m) return null;
+  return await kv.get('session:' + m[1]);
+}
+function json(obj, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { 'content-type': 'application/json; charset=UTF-8', 'Access-Control-Allow-Origin': '*' }
+  });
+}
+
 export async function onRequestPut(context) {
-  const { request, env, params } = context;
-  const id = params.id;
-  
-  try {
-    const { name, url, description, icon, category_id, is_private, tags, notes } = await request.json();
-    const isPrivate = is_private ? 1 : 0;
-    
-    // 验证 URL 格式和协议
-    if (url !== undefined) {
-      if (typeof url !== 'string' || !url.trim()) {
-        return new Response(JSON.stringify({ error: 'URL 必须是非空字符串' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-      
-      const trimmedUrl = url.trim();
-      try {
-        const parsedUrl = new URL(trimmedUrl);
-        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-          return new Response(JSON.stringify({ error: '只支持 http 和 https 协议的链接' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
-      } catch (e) {
-        return new Response(JSON.stringify({ error: 'URL 格式无效' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-    }
-    
-    // 仅在 URL 被修改时检查是否重复
-    if (url !== undefined) {
-      const existingBookmark = await env.DB.prepare(
-        `SELECT b.id, b.name, b.url, b.category_id, c.name as category_name 
-         FROM bookmarks b 
-         LEFT JOIN categories c ON b.category_id = c.id 
-         WHERE b.url = ? AND b.id != ? 
-         LIMIT 1`
-      ).bind(url.trim(), id).first();
-      
-      if (existingBookmark) {
-        return new Response(JSON.stringify({
-          success: false,
-          duplicate: true,
-          error: '该 URL 已被其他书签使用',
-          existingBookmark: {
-            id: existingBookmark.id,
-            name: existingBookmark.name,
-            url: existingBookmark.url,
-            category_id: existingBookmark.category_id,
-            category_name: existingBookmark.category_name
-          }
-        }), {
-          status: 409,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-    }
-    
-    await env.DB.prepare(
-      'UPDATE bookmarks SET name = ?, url = ?, description = ?, icon = ?, category_id = ?, is_private = ?, tags = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
-    ).bind(name, url, description || null, icon || null, category_id, isPrivate, tags || '', notes || '', id).run();
-    
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: 'Failed to update bookmark' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
+  const auth = await requireAuth(context);
+  if (!auth) return json({ error: '未登录' }, 401);
+  const kv = context.env.my_kv || globalThis.my_kv;
+  const id = Number(context.params.id);
+  const body = await context.request.json();
+  const list = await loadList(kv);
+  const i = list.findIndex(b => b.id === id);
+  if (i < 0) return json({ error: '未找到该书签' }, 404);
+  const allowed = ['name', 'url', 'description', 'cat', 'isPrivate'];
+  allowed.forEach(k => { if (k in body) list[i][k] = body[k]; });
+  await saveList(kv, list);
+  return json({ success: true, data: list[i] });
 }
 
-// DELETE bookmark
 export async function onRequestDelete(context) {
-  const { env, params } = context;
-  const id = params.id;
-  
-  try {
-    await env.DB.prepare('DELETE FROM bookmarks WHERE id = ?').bind(id).run();
-    
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: 'Failed to delete bookmark' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
+  const auth = await requireAuth(context);
+  if (!auth) return json({ error: '未登录' }, 401);
+  const kv = context.env.my_kv || globalThis.my_kv;
+  const id = Number(context.params.id);
+  let list = await loadList(kv);
+  list = list.filter(b => b.id !== id);
+  await saveList(kv, list);
+  return json({ success: true });
 }
-

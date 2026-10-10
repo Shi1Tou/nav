@@ -1,21 +1,19 @@
-// GET /api/frequent  —— 返回点击频率最高的书签排行（用于前端动态生成“常用”区）
-// 返回: { "data": [{ "id": 12, "count": 5 }, ...] }
+// GET /api/frequent  —— 按 clicks 排序返回高频书签（私密书签仅登录后可见）
+async function requireAuth(context) {
+  const kv = context.env.my_kv || globalThis.my_kv;
+  const a = context.request.headers.get('Authorization') || '';
+  const m = a.match(/^Bearer\s+(.+)$/);
+  if (!m) return null;
+  return await kv.get('session:' + m[1]);
+}
 export async function onRequestGet(context) {
   const kv = context.env.my_kv || globalThis.my_kv;
-  try {
-    const raw = await kv.get('clicks') || '{}';
-    const data = JSON.parse(raw);
-    const top = Object.entries(data)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 12)
-      .map(([id, count]) => ({ id: Number(id), count }));
-    return new Response(JSON.stringify({ data: top }), {
-      headers: { 'content-type': 'application/json; charset=UTF-8', 'Access-Control-Allow-Origin': '*' }
-    });
-  } catch (e) {
-    return new Response(JSON.stringify({ data: [], error: e.message }), {
-      status: 500,
-      headers: { 'content-type': 'application/json; charset=UTF-8', 'Access-Control-Allow-Origin': '*' }
-    });
-  }
+  const raw = await kv.get('bookmarks');
+  const list = raw ? JSON.parse(raw) : [];
+  const auth = await requireAuth(context);
+  const pool = auth ? list : list.filter(b => !b.isPrivate);
+  const top = [...pool].sort((a, b) => (b.clicks || 0) - (a.clicks || 0)).slice(0, 12);
+  return new Response(JSON.stringify({ data: top }), {
+    headers: { 'content-type': 'application/json; charset=UTF-8', 'Access-Control-Allow-Origin': '*' }
+  });
 }

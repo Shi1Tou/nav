@@ -1,37 +1,18 @@
-// POST /api/click  —— 记录一次书签点击，计数存入 EdgeOne KV
-// 请求体: { "id": 12 }
-// KV 键: clicks (JSON 对象 { "书签id": 次数 })
+// POST /api/click  —— 记录一次书签点击，在 bookmarks 数组里累加 clicks
 export async function onRequestPost(context) {
   const kv = context.env.my_kv || globalThis.my_kv;
   try {
     const { id } = await context.request.json();
-    if (id === undefined || id === null) {
-      return json({ error: 'missing id' }, 400);
-    }
-    const raw = await kv.get('clicks') || '{}';
-    const data = JSON.parse(raw);
-    data[id] = (data[id] || 0) + 1;
-    await kv.put('clicks', JSON.stringify(data));
-    return json({ success: true, id, count: data[id] });
+    const raw = await kv.get('bookmarks');
+    if (!raw) return new Response(JSON.stringify({ error: 'no data' }), { status: 404 });
+    const list = JSON.parse(raw);
+    const b = list.find(x => x.id === id);
+    if (b) b.clicks = (b.clicks || 0) + 1;
+    await kv.put('bookmarks', JSON.stringify(list));
+    return new Response(JSON.stringify({ success: true, count: b ? b.clicks : 0 }), {
+      headers: { 'content-type': 'application/json; charset=UTF-8', 'Access-Control-Allow-Origin': '*' }
+    });
   } catch (e) {
-    return json({ error: 'record failed: ' + e.message }, 500);
+    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
   }
-}
-
-// 简单 CORS 预检
-export async function onRequestOptions() {
-  return new Response(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
-    }
-  });
-}
-
-function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { 'content-type': 'application/json; charset=UTF-8', 'Access-Control-Allow-Origin': '*' }
-  });
 }
