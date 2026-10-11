@@ -1,121 +1,96 @@
-# 📚 书签管理系统
+# 📚 书签导航
 
-> ⚠️ **本项目已停止维护和更新。** 后续版本将发布到新的仓库：[bookmark-nav](https://github.com/deerwan/bookmark-nav)
+基于 [deerwan/nav](https://github.com/deerwan/nav) Fork 并适配 EdgeOne Pages 全栈部署（前端单文件 + Edge Functions + KV 存储）。
 
-基于 Cloudflare Pages + D1 + Vue 3 构建的现代化书签管理系统。
+## ✨ 功能
 
-## ✨ 功能特性
+- 🔥 **常用网站**：按点击频率自动生成，无需手动维护
+- 🗂 **分类管理**：动态增删改分类，支持私密书签
+- 📦 **导入/导出**：JSON 备份与恢复
+- 📱 **响应式**：手机 / 电脑自适应布局
+- 🌙 **暗色模式**：跟随系统或手动切换
+- 🔐 **管理员后台**：登录后增删书签、调整常用区数量、公开/私密标记
 
-- 📑 **分类管理**：多级嵌套分类，支持拖拽排序
-- 🔖 **书签管理**：添加、编辑、删除书签，支持私密标记
-- 🔍 **实时搜索**：按名称、URL 或描述快速搜索
-- 📥 **导入导出**：支持 JSON/HTML 格式，导入浏览器书签
-- 💾 **云端备份**：备份到 Cloudflare R2，支持恢复（可选）
-- ⚡ **批量操作**：批量移动、编辑、删除
-- 🤖 **AI 功能**：智能生成描述、分类推荐（支持 OpenAI 兼容 API）
-- 🎨 **主题定制**：亮色/暗色主题、自定义壁纸、标题、页脚
-- 🌐 **浏览器扩展**：支持 Chrome、Edge、Brave、Firefox
+## 🚀 一键部署到 EdgeOne
 
-## 🛠️ 技术栈
+点击下方按钮，自动导入本仓库并进入 EdgeOne Makers 部署流程：
 
-Vue 3 + Vite + Cloudflare Pages Functions + D1 + R2
+[![使用 EdgeOne Makers 部署](https://img.shields.io/badge/Deploy%20with-EdgeOne%20Makers-blue?style=for-the-badge&logo=tencentqq)](https://console.cloud.tencent.com/edgeone/makers/new?repository-url=https%3A%2F%2Fgithub.com%2FShi1Tou%2Fnav&env=ADMIN_USERNAME%2CADMIN_PASSWORD&env-description=%E7%AE%A1%E7%90%86%E5%91%98%E7%99%BB%E5%BD%95%E8%B4%A6%E5%8F%B7%E5%AF%86%E7%A0%81)
 
-## 🚀 快速部署
+### 部署步骤
 
-### 1. 创建 D1 数据库
-在 [Cloudflare Dashboard](https://dash.cloudflare.com/) 中：
-- `Workers & Pages` > `D1` > `Create database`，名称：`bookmark-db`
-- 进入数据库 > `Console`，执行 `schema.sql`
+1. **点击上方按钮**，跳转到 EdgeOne 控制台（会自动预填本仓库地址和环境变量项）
+2. **填写环境变量**：
+   - `ADMIN_USERNAME`：管理员用户名（默认 `admin`）
+   - `ADMIN_PASSWORD`：管理员密码（**必须设置强密码**，否则登录接口报 500）
+3. 点击「立即创建」，等待 1~2 分钟部署完成
+4. **绑定 KV 存储**（关键步骤，EdgeOne 暂不支持通过配置文件自动绑定）：
+   - 进入 **Pages → KV 存储**，点击「创建命名空间」，名称填 `nav-kv`
+   - 进入你的项目 → **项目设置 → 存储绑定**（或在 KV 命名空间详情页点「关联项目」）
+   - 添加绑定：
+     - **变量名（Variable Name）**：`my_kv`（必须一字不差）
+     - **命名空间**：选择刚创建的 `nav-kv`
+   - 回到「部署管理」，对最新部署点「重试部署」使绑定生效
+5. **访问站点**，点右上角「登录」，用上面设置的账号密码登录，开始管理书签
 
-### 2. 部署 Pages 项目
-- Fork [本仓库](https://github.com/deerwan/nav) 到 GitHub
-- 在 Cloudflare Dashboard 创建 Pages 项目，连接 GitHub 仓库
-- 构建设置：构建命令 `npm run build`，输出目录 `dist`
+## 📁 项目结构
 
-### 3. 配置绑定和变量
-
-**绑定 D1 数据库**：
-- Pages 项目 > `Settings` > `Functions` > `D1 database bindings`
-- 添加绑定：变量名 `DB`，选择 `bookmark-db`
-
-**配置环境变量**（部署后配置）：
-- Pages 项目 > `Settings` > `Variables and Secrets`
-- 添加以下变量后，在 `Deployments` 页面重试部署
-
-| 变量名 | 说明 | 必需 |
-|--------|------|------|
-| `ADMIN_USERNAME` | 管理员用户名 | ✅ |
-| `ADMIN_PASSWORD` | 管理员密码 | ✅ |
-| `JWT_SECRET` | JWT 密钥（至少32位随机字符串） | ✅ |
-| `OPENAI_API_KEY` | OpenAI API Key（AI 功能） | ❌ |
-| `OPENAI_BASE_URL` | API 地址（默认：`https://api.openai.com/v1`） | ❌ |
-| `OPENAI_MODEL` | 模型名称（默认：`gpt-4o-mini`） | ❌ |
-
-**配置 R2 备份**（可选）：
-- `Workers & Pages` > `R2` > `Create bucket`，名称：`bookmark-backups`
-- Pages 项目 > `Settings` > `Functions` > `R2 bucket bindings`
-- 添加绑定：变量名 `BACKUP_BUCKET`，选择 `bookmark-backups`
-- 重试部署
-
-**配置 KV 速率限制**（可选，用于登录安全防护）：
-- `Workers & Pages` > `KV` > `Create namespace`，名称随意
-- Pages 项目 > `Settings` > `Functions` > `KV namespace bindings`
-- 添加绑定：变量名 `RATE_LIMIT_STORAGE`，选择创建的 KV 命名空间
-- 重试部署
-- 配置后，同一用户名 1 分钟内最多只能尝试 5 次登录，防止暴力破解
-
-> **提示**：所有配置通过 Dashboard 完成，无需修改代码。`wrangler.toml` 仅用于本地开发（已添加到 `.gitignore`）。
-
-**本地开发**：
-```bash
-cp wrangler.toml.example wrangler.toml
-# 编辑 wrangler.toml，替换 database_id
-npm run dev
+```
+├── index.html              # 前端单文件（内联 CSS+JS，含管理后台）
+├── edgeone.json            # EdgeOne 构建配置（零构建，直接托管根目录）
+└── functions/              # EdgeOne Pages Functions
+    └── api/
+        ├── login.js          # POST 登录，token 存 KV
+        ├── bookmarks/index.js    # GET 列表 / POST 新增
+        ├── bookmarks/[id].js     # PUT 编辑 / DELETE 删除
+        ├── settings.js       # GET/PUT 设置（常用区数量、标题、分类列表）
+        ├── click.js          # POST 记录点击
+        └── frequent.js       # GET 高频书签排行
 ```
 
-## 🧩 浏览器扩展
+## 🔧 环境变量
 
-**商店下载**：
-- [Edge 扩展](https://microsoftedge.microsoft.com/addons/detail/hepnnmnggonihfpkgcpengcaghlmjpkl)
-- [Firefox 扩展](https://addons.mozilla.org/en-US/firefox/addon/%E4%B9%A6%E7%AD%BE%E7%AE%A1%E7%90%86%E5%8A%A9%E6%89%8B-bookmark-manager/)
+| 变量名 | 必填 | 说明 |
+|---|---|---|
+| `ADMIN_USERNAME` | 否 | 管理员用户名，默认 `admin` |
+| `ADMIN_PASSWORD` | **是** | 管理员登录密码，必须在控制台配置 |
 
-**手动安装**：
-在 [Releases](https://github.com/deerwan/nav/releases) 下载扩展：
-- Chrome/Edge/Brave: `bookmark-manager-chromium.zip`
-- Firefox: `bookmark-manager-firefox.zip`
+## 🗄 KV 存储绑定
 
-安装后配置服务器地址和管理员账号即可使用。
+| 绑定变量名 | 必填 | 说明 |
+|---|---|---|
+| `my_kv` | **是** | Edge KV 命名空间，存储书签、设置、登录会话 |
 
-## 📖 更多信息
+KV 键设计：
+- `bookmarks`：书签数组 JSON
+- `settings`：站点设置 JSON（含 categories 分类列表）
+- `session:<token>`：登录会话（7 天过期）
 
-- 📺 [视频教程](https://www.bilibili.com/video/BV1zR2MB6EnW/)
-- 📦 [GitHub 仓库](https://github.com/deerwan/nav)
+## 📡 API 接口
 
-## 💰 请喝咖啡
+| 路由 | 方法 | 鉴权 | 说明 |
+|---|---|---|---|
+| `/api/login` | POST | 无 | 登录，返回 token |
+| `/api/bookmarks` | GET | 无 | 书签列表（自动过滤私密） |
+| `/api/bookmarks` | POST | Bearer token | 新增书签 |
+| `/api/bookmarks/:id` | PUT | Bearer token | 编辑书签 |
+| `/api/bookmarks/:id` | DELETE | Bearer token | 删除书签 |
+| `/api/settings` | GET | 无 | 读取设置 |
+| `/api/settings` | PUT | Bearer token | 保存设置 |
+| `/api/click` | POST | 无 | 记录一次点击 |
+| `/api/frequent` | GET | 无 | 高频书签排行 |
 
-如果这个项目对你有帮助，欢迎赞助支持！
+## ❓ 常见问题
 
-<table>
-  <tr>
-    <td align="center">
-      <strong>微信</strong><br>
-      <img src="images/zsm.jpeg" alt="微信" width="200">
-    </td>
-    <td align="center">
-      <strong>支付宝</strong><br>
-      <img src="images/zfb.JPG" alt="支付宝" width="200">
-    </td>
-    <td align="center">
-      <strong>红包码</strong><br>
-      <img src="images/hbm.PNG" alt="红包码" width="200">
-    </td>
-  </tr>
-</table>
+**Q：部署后访问站点，点登录报 500？**
+A：环境变量 `ADMIN_PASSWORD` 没配置。在项目设置 → 环境变量里加上后重试部署。
 
-☕ [查看咖啡列表](https://lllh.de/sponsor/) - 感谢所有支持者！
+**Q：书签列表为空或接口返回 HTML？**
+A：KV 没绑定成功。检查存储绑定里变量名是否为 `my_kv`，绑定后是否重试了部署。
 
-## 📝 许可证
+**Q：想改管理员密码？**
+A：直接改 `ADMIN_PASSWORD` 环境变量，重新部署即可，旧 token 自动失效。
 
-Apache License 2.0
+## 📝 License
 
-Made with ❤️ using Vue 3 and Cloudflare
+MIT
