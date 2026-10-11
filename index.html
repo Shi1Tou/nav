@@ -1,15 +1,489 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>书签管理</title>
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>📚 书签导航</title>
+<style>
+  :root{
+    --bg:#f5f7fa; --card:#ffffff; --text:#1f2937; --text-2:#6b7280;
+    --primary:#4f7cff; --border:#e5e8ef;
+    --shadow:0 2px 10px rgba(30,41,59,.06); --hot:#ff6b4a; --danger:#ef4444; --ok:#16a34a;
+  }
+  html[data-theme="dark"]{
+    --bg:#0f1420; --card:#1b2334; --text:#e6eaf2; --text-2:#9aa6bd;
+    --primary:#6d94ff; --border:#2a344a; --shadow:0 2px 12px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--text);line-height:1.5;transition:background .25s,color .25s}
+  .wrap{max-width:1080px;margin:0 auto;padding:20px 16px 80px}
+  header{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+  .title{font-size:1.25rem;font-weight:700;flex-shrink:0}
+  .title small{display:block;font-size:.72rem;font-weight:400;color:var(--text-2);margin-top:2px}
+  .search{flex:1;min-width:180px;position:relative}
+  .search input{width:100%;padding:10px 14px 10px 38px;border:1px solid var(--border);border-radius:12px;
+    background:var(--card);color:var(--text);font-size:.93em;outline:none;box-shadow:var(--shadow)}
+  .search input:focus{border-color:var(--primary)}
+  .search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:var(--text-2)}
+  .header-actions{display:flex;gap:8px;flex-shrink:0}
+  .btn{border:1px solid var(--border);background:var(--card);color:var(--text);padding:9px 13px;
+    border-radius:10px;cursor:pointer;font-size:.86rem;box-shadow:var(--shadow);transition:all .15s;white-space:nowrap}
+  .btn:hover{border-color:var(--primary)}
+  .btn:active{transform:scale(.97)}
+  .btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .btn-danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+  .btn-ghost{background:transparent;box-shadow:none}
+  .btn-sm{padding:5px 10px;font-size:.78rem;border-radius:8px}
+  .cat{margin-bottom:24px}
+  .cat h2{font-size:1rem;margin:0 0 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .cat h2 .bar{width:4px;height:15px;border-radius:3px;background:var(--primary);flex-shrink:0}
+  .cat.hot h2 .bar{background:var(--hot)}
+  .cat-count{color:var(--text-2);font-weight:400;font-size:.78rem}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+  a.card{display:flex;align-items:center;gap:11px;padding:11px 13px;background:var(--card);border:1px solid var(--border);
+    border-radius:13px;text-decoration:none;color:var(--text);box-shadow:var(--shadow);transition:transform .15s,border-color .15s;position:relative}
+  a.card:hover{transform:translateY(-2px);border-color:var(--primary)}
+  .favicon{width:36px;height:36px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+    font-weight:700;color:#fff;font-size:.95em}
+  .meta{min-width:0;flex:1}
+  .meta .n{font-weight:600;font-size:.92em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .meta .d{font-size:.76em;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .badges{display:flex;gap:4px;flex-shrink:0;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+  .tag{font-size:.66rem;padding:2px 7px;border-radius:99px;font-weight:600}
+  .tag-priv{background:#fef3c7;color:#b45309}
+  .tag-click{background:rgba(255,107,74,.12);color:var(--hot)}
+  .del-x{position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;background:var(--danger);
+    color:#fff;border:none;cursor:pointer;font-size:12px;line-height:1;display:none;align-items:center;justify-content:center;z-index:2}
+  body.admin a.card:hover .del-x{display:flex}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:18px;box-shadow:var(--shadow)}
+  .tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+  .tab-btn{padding:6px 12px;font-size:.82rem;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer}
+  .tab-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+  .form-row .full{grid-column:1/-1}
+  .form-row input,.form-row select{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;
+    background:var(--bg);color:var(--text);font-size:.9em;outline:none}
+  .form-row input:focus,.form-row select:focus{border-color:var(--primary)}
+  .check{display:flex;align-items:center;gap:7px;font-size:.86em;color:var(--text-2)}
+  .check input{width:16px;height:16px}
+  .cat-list{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+  .cat-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:9px}
+  .cat-row .cat-name{flex:1;font-size:.9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cat-row .cat-edit-input{flex:1;padding:5px 8px;border:1px solid var(--primary);border-radius:6px;background:var(--card);color:var(--text);font-size:.88em}
+  .hot-empty{font-size:.84em;color:var(--text-2);padding:10px 14px;background:var(--card);border:1px dashed var(--border);border-radius:12px}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);
+    padding:9px 18px;border-radius:99px;font-size:.86rem;opacity:0;transition:opacity .25s;pointer-events:none;z-index:99;max-width:90vw;text-align:center}
+  .toast.show{opacity:.95}
+  .modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+  .modal-mask.show{display:flex}
+  .modal{background:var(--card);border-radius:16px;padding:22px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  .modal h3{margin-bottom:14px;font-size:1.05rem}
+  .modal input{width:100%;padding:10px 12px;margin-bottom:10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-size:.92em;outline:none}
+  .modal .err{color:var(--danger);font-size:.82em;margin-bottom:8px;min-height:1em}
+  footer{margin-top:40px;text-align:center;color:var(--text-2);font-size:.78rem}
+  footer a{color:var(--primary);text-decoration:none}
+  @media (max-width:640px){
+    .wrap{padding:14px 12px 60px}
+    header{flex-direction:column;align-items:stretch}
+    .title{text-align:center}
+    .search{min-width:0}
+    .header-actions{justify-content:center}
+    .grid{grid-template-columns:1fr 1fr;gap:8px}
+    .form-row{grid-template-columns:1fr}
+    .modal{padding:18px}
+    .btn{padding:8px 11px;font-size:.82rem}
+    .favicon{width:32px;height:32px;font-size:.85em}
+  }
+  @media (max-width:380px){.grid{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
-  <div id="app"></div>
-  <script type="module" src="/src/main.js"></script>
+<div class="wrap">
+  <header>
+    <div class="title" id="siteTitle">📚 书签导航<small>按点击频率自动生成常用列表</small></div>
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="q" type="text" placeholder="搜索书签…" autocomplete="off">
+    </div>
+    <div class="header-actions">
+      <button class="btn" id="themeBtn" title="主题">🌙</button>
+      <button class="btn" id="loginBtn" style="display:none">登录</button>
+      <button class="btn btn-danger" id="logoutBtn" style="display:none">退出</button>
+    </div>
+  </header>
+
+  <div id="adminPanel" class="panel" style="display:none">
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="add">➕ 添加书签</button>
+      <button class="tab-btn" data-tab="cats">🗂 分类管理</button>
+      <button class="tab-btn" data-tab="data">📦 导入/导出</button>
+      <button class="tab-btn" data-tab="settings">⚙️ 设置</button>
+    </div>
+
+    <div id="tab-add">
+      <div class="form-row">
+        <input id="fName" placeholder="名称（如：GitHub）">
+        <input id="fUrl" placeholder="网址（https://…）">
+        <input id="fDesc" class="full" placeholder="描述（可选）">
+        <select id="fCat"></select>
+        <label class="check"><input type="checkbox" id="fPrivate"> 私密（仅登录可见）</label>
+      </div>
+      <button class="btn btn-primary" id="addBtn">添加书签</button>
+    </div>
+
+    <div id="tab-cats" style="display:none">
+      <div class="form-row">
+        <input id="newCatName" placeholder="新分类名称">
+        <button class="btn btn-primary" id="addCatBtn">添加分类</button>
+      </div>
+      <div class="cat-list" id="catList"></div>
+    </div>
+
+    <div id="tab-data" style="display:none">
+      <p style="font-size:.85em;color:var(--text-2);margin-bottom:12px">导出当前所有书签和分类为 JSON 备份文件；或从备份文件恢复。</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" id="exportBtn">⬇ 导出 JSON</button>
+        <button class="btn" id="importBtn">⬆ 导入 JSON</button>
+        <input type="file" id="importFile" accept=".json,application/json" style="display:none">
+      </div>
+    </div>
+
+    <div id="tab-settings" style="display:none">
+      <div class="form-row">
+        <label>常用区显示数量
+          <input type="number" id="sHot" min="1" max="20" value="8">
+        </label>
+        <label>站点标题
+          <input id="sTitle" value="📚 书签导航">
+        </label>
+      </div>
+      <button class="btn btn-primary" id="saveSettingsBtn">保存设置</button>
+    </div>
+  </div>
+
+  <main id="app"></main>
+  <footer>Built with ❤️ · Forked from <a href="https://github.com/deerwan/nav" target="_blank" rel="noopener">deerwan/nav</a> · EdgeOne Pages + KV</footer>
+</div>
+
+<div class="modal-mask" id="loginMask">
+  <div class="modal">
+    <h3>管理员登录</h3>
+    <div class="err" id="loginErr"></div>
+    <input id="loginUser" placeholder="用户名" autocomplete="username">
+    <input id="loginPass" type="password" placeholder="密码" autocomplete="current-password">
+    <button class="btn btn-primary" style="width:100%" id="doLogin">登 录</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const useLocal = location.hostname.includes('edgeone.site');
+let bookmarks = [];
+let settings = { hotCount: 8, title: '📚 书签导航', categories: ['常用导航','搜索引擎','开发编程','效率工具','学习资源','生活购物','社交娱乐'] };
+let token = localStorage.getItem('nav_token') || '';
+
+const FALLBACK = {
+  bookmarks: [
+    {id:1,name:'百度',url:'https://www.baidu.com',description:'全球最大中文搜索引擎',cat:'常用导航',isPrivate:0,clicks:3},
+    {id:2,name:'高德地图',url:'https://www.amap.com',description:'出门导航、公交地铁查询',cat:'常用导航',isPrivate:0,clicks:1},
+    {id:3,name:'铁路12306',url:'https://www.12306.cn',description:'官方火车票预订',cat:'常用导航',isPrivate:0,clicks:2},
+    {id:4,name:'携程旅行',url:'https://www.ctrip.com',description:'酒店机票度假',cat:'常用导航',isPrivate:0,clicks:0},
+    {id:5,name:'快递100',url:'https://www.kuaidi100.com',description:'全网物流查询',cat:'常用导航',isPrivate:0,clicks:1},
+    {id:6,name:'谷歌',url:'https://www.google.com',description:'全球搜索引擎',cat:'搜索引擎',isPrivate:0,clicks:5},
+    {id:7,name:'必应',url:'https://cn.bing.com',description:'微软搜索',cat:'搜索引擎',isPrivate:0,clicks:2},
+    {id:8,name:'GitHub',url:'https://github.com',description:'代码托管',cat:'开发编程',isPrivate:0,clicks:8},
+    {id:9,name:'Gitee 码云',url:'https://gitee.com',description:'国内代码托管',cat:'开发编程',isPrivate:0,clicks:1},
+    {id:10,name:'MDN',url:'https://developer.mozilla.org/zh-CN',description:'前端文档',cat:'开发编程',isPrivate:0,clicks:3},
+    {id:11,name:'Vue.js',url:'https://cn.vuejs.org',description:'渐进式框架',cat:'开发编程',isPrivate:0,clicks:2},
+    {id:12,name:'飞书',url:'https://www.feishu.cn',description:'企业协作',cat:'效率工具',isPrivate:0,clicks:1},
+    {id:13,name:'语雀',url:'https://www.yuque.com',description:'知识库',cat:'效率工具',isPrivate:0,clicks:0},
+    {id:14,name:'哔哩哔哩',url:'https://www.bilibili.com',description:'视频学习',cat:'学习资源',isPrivate:0,clicks:4},
+    {id:15,name:'知乎',url:'https://www.zhihu.com',description:'问答社区',cat:'学习资源',isPrivate:0,clicks:2},
+    {id:16,name:'淘宝',url:'https://www.taobao.com',description:'网购',cat:'生活购物',isPrivate:0,clicks:3},
+    {id:17,name:'京东',url:'https://www.jd.com',description:'数码家电',cat:'生活购物',isPrivate:0,clicks:2},
+    {id:18,name:'美团',url:'https://www.meituan.com',description:'外卖出行',cat:'生活购物',isPrivate:0,clicks:1},
+    {id:19,name:'微博',url:'https://weibo.com',description:'热搜',cat:'社交娱乐',isPrivate:0,clicks:1},
+    {id:20,name:'YouTube',url:'https://www.youtube.com',description:'全球视频',cat:'社交娱乐',isPrivate:0,clicks:0}
+  ],
+  settings: { hotCount: 8, title: '📚 书签导航', categories: ['常用导航','搜索引擎','开发编程','效率工具','学习资源','生活购物','社交娱乐'] }
+};
+
+async function api(path, opts = {}) {
+  if (useLocal) return null;
+  try {
+    const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) };
+    const r = await fetch(path, { ...opts, headers: { ...headers, ...(opts.headers||{}) } });
+    if (r.status === 401) { token=''; localStorage.removeItem('nav_token'); renderAuth(); return null; }
+    return await r.json();
+  } catch (e) { return null; }
+}
+
+async function loadAll() {
+  const bRes = await api('/api/bookmarks');
+  const sRes = await api('/api/settings');
+  if (bRes && bRes.data) bookmarks = bRes.data;
+  else bookmarks = JSON.parse(localStorage.getItem('nav_bm') || 'null') || FALLBACK.bookmarks.slice();
+  if (sRes && sRes.data) settings = { ...settings, ...sRes.data };
+  else settings = { ...settings, ...JSON.parse(localStorage.getItem('nav_settings') || '{}') };
+  if (!Array.isArray(settings.categories) || !settings.categories.length)
+    settings.categories = FALLBACK.settings.categories.slice();
+}
+function persistLocal() {
+  localStorage.setItem('nav_bm', JSON.stringify(bookmarks));
+  localStorage.setItem('nav_settings', JSON.stringify(settings));
+}
+async function saveSettings() {
+  if (useLocal) { persistLocal(); return; }
+  await api('/api/settings', { method:'PUT', body: JSON.stringify(settings) });
+}
+
+const palettes=['#4f7cff','#22b07d','#f59e0b','#ef5da8','#8b5cf6','#06b6d4','#f97316','#ec4899'];
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+function render(filter='') {
+  const app = document.getElementById('app'); app.innerHTML='';
+  const f = filter.trim().toLowerCase();
+  const pool = token ? bookmarks : bookmarks.filter(b=>!b.isPrivate);
+  const hit = b => !f || b.name.toLowerCase().includes(f) || b.url.toLowerCase().includes(f) || (b.description||'').toLowerCase().includes(f);
+  if (!f) {
+    const sec = document.createElement('section'); sec.className='cat hot';
+    const top = [...pool].sort((a,b)=>(b.clicks||0)-(a.clicks||0)).slice(0, settings.hotCount||8);
+    sec.innerHTML = `<h2><span class="bar"></span>🔥 常用网站 <span class="cat-count">按点击频率自动排序</span></h2>`;
+    if (!top.length) {
+      sec.innerHTML += `<div class="hot-empty">还没有点击记录 —— 点开几个常用网站后，这里会自动生成列表 🚀</div>`;
+    } else {
+      const g = document.createElement('div'); g.className='grid';
+      g.innerHTML = top.map(b=>cardHtml(b)).join('');
+      sec.appendChild(g);
+    }
+    app.appendChild(sec);
+  }
+  settings.categories.forEach(cat=>{
+    const items = pool.filter(b=>b.cat===cat && hit(b));
+    if (!items.length) return;
+    const sec = document.createElement('section'); sec.className='cat';
+    sec.innerHTML = `<h2><span class="bar"></span>${esc(cat)} <span class="cat-count">(${items.length})</span></h2>`;
+    const g = document.createElement('div'); g.className='grid';
+    g.innerHTML = items.map(b=>cardHtml(b)).join('');
+    sec.appendChild(g); app.appendChild(sec);
+  });
+  if (!app.children.length) app.innerHTML = `<div class="hot-empty" style="text-align:center">没有匹配的书签</div>`;
+  const sel = document.getElementById('fCat');
+  const cur = sel.value;
+  sel.innerHTML = settings.categories.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if ([...sel.options].some(o=>o.value===cur)) sel.value = cur;
+}
+
+function cardHtml(b) {
+  const idx = palettes.length + (b.id%palettes.length);
+  const badges = (token && b.isPrivate) ? `<span class="tag tag-priv">私密</span>` : '';
+  const clickBadge = (b.clicks>0) ? `<span class="tag tag-click">${b.clicks}次</span>` : '';
+  return `<a class="card" href="${b.url}" target="_blank" rel="noopener" data-id="${b.id}">
+    <div class="favicon" style="background:${palettes[idx%palettes.length]}">${(b.name[0]||'?').toUpperCase()}</div>
+    <div class="meta"><div class="n">${esc(b.name)}</div><div class="d">${esc(b.description||b.url)}</div></div>
+    <div class="badges">${clickBadge}${badges}</div>
+    <button class="del-x" data-del="${b.id}" title="删除">×</button>
+  </a>`;
+}
+
+function renderAuth() {
+  document.getElementById('loginBtn').style.display = token ? 'none' : '';
+  document.getElementById('logoutBtn').style.display = token ? '' : 'none';
+  document.getElementById('adminPanel').style.display = token ? '' : 'none';
+  document.body.classList.toggle('admin', !!token);
+  if (token) renderCatList();
+}
+
+function renderCatList() {
+  const list = document.getElementById('catList');
+  list.innerHTML = settings.categories.map((c, i) => `
+    <div class="cat-row" data-i="${i}">
+      <span class="cat-name">${esc(c)}</span>
+      <button class="btn btn-sm btn-ghost" data-rename="${i}">重命名</button>
+      <button class="btn btn-sm btn-danger" data-delcat="${i}">删除</button>
+    </div>`).join('');
+}
+
+document.getElementById('app').addEventListener('click', async e=>{
+  const del = e.target.closest('[data-del]');
+  if (del) {
+    e.preventDefault();
+    const id = Number(del.dataset.del);
+    if (!confirm('确认删除该书签？')) return;
+    if (useLocal) { bookmarks = bookmarks.filter(b=>b.id!==id); persistLocal(); }
+    else {
+      const r = await api('/api/bookmarks/'+id, { method:'DELETE' });
+      if (!r || !r.success) { toast('删除失败'); return; }
+    }
+    toast('已删除'); await loadAll(); render(document.getElementById('q').value);
+    return;
+  }
+  const a = e.target.closest('a.card');
+  if (a) {
+    const id = Number(a.dataset.id);
+    if (useLocal) { const b=bookmarks.find(x=>x.id===id); if(b) b.clicks=(b.clicks||0)+1; persistLocal(); }
+    else api('/api/click', { method:'POST', body: JSON.stringify({id}) });
+  }
+});
+
+document.getElementById('q').addEventListener('input', e=>render(e.target.value));
+document.getElementById('themeBtn').addEventListener('click', ()=>{
+  const dark = document.documentElement.getAttribute('data-theme')!=='dark';
+  document.documentElement.setAttribute('data-theme', dark?'dark':'light');
+  document.getElementById('themeBtn').textContent = dark?'☀️':'🌙';
+  localStorage.setItem('nav-theme', dark?'dark':'light');
+});
+(function(){
+  const saved = localStorage.getItem('nav-theme');
+  const dark = saved ? saved==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.setAttribute('data-theme', dark?'dark':'light');
+  document.getElementById('themeBtn').textContent = dark?'☀️':'🌙';
+})();
+
+document.getElementById('loginBtn').addEventListener('click', ()=>document.getElementById('loginMask').classList.add('show'));
+document.getElementById('logoutBtn').addEventListener('click', ()=>{
+  token=''; localStorage.removeItem('nav_token'); renderAuth(); render(document.getElementById('q').value); toast('已退出');
+});
+document.getElementById('doLogin').addEventListener('click', async ()=>{
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  const err = document.getElementById('loginErr');
+  if (useLocal) {
+    if (u==='admin' && p==='admin123') {
+      token = 'demo-token'; localStorage.setItem('nav_token', token);
+      document.getElementById('loginMask').classList.remove('show');
+      renderAuth(); render(document.getElementById('q').value); toast('已登录（演示模式）');
+    } else err.textContent = '演示账号 admin / admin123';
+    return;
+  }
+  const r = await api('/api/login', { method:'POST', body: JSON.stringify({username:u, password:p}) });
+  if (r && r.success) {
+    token = r.token; localStorage.setItem('nav_token', token);
+    document.getElementById('loginMask').classList.remove('show');
+    renderAuth(); await loadAll(); render(document.getElementById('q').value); toast('登录成功');
+  } else err.textContent = (r && r.error) || '登录失败';
+});
+
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    ['add','cats','data','settings'].forEach(t=>{
+      document.getElementById('tab-'+t).style.display = btn.dataset.tab===t ? '' : 'none';
+    });
+  });
+});
+
+document.getElementById('addBtn').addEventListener('click', async ()=>{
+  const bm = {
+    name: document.getElementById('fName').value.trim(),
+    url: document.getElementById('fUrl').value.trim(),
+    description: document.getElementById('fDesc').value.trim(),
+    cat: document.getElementById('fCat').value,
+    isPrivate: document.getElementById('fPrivate').checked ? 1 : 0
+  };
+  if (!bm.name || !bm.url) { toast('请填写名称和网址'); return; }
+  if (!/^https?:\/\//.test(bm.url)) bm.url = 'https://' + bm.url;
+  if (useLocal) bookmarks.push({ id: Date.now(), clicks: 0, ...bm });
+  else {
+    const r = await api('/api/bookmarks', { method:'POST', body: JSON.stringify(bm) });
+    if (!r || !r.success) { toast('添加失败'); return; }
+  }
+  toast('已添加');
+  document.getElementById('fName').value=''; document.getElementById('fUrl').value=''; document.getElementById('fDesc').value='';
+  document.getElementById('fPrivate').checked=false;
+  persistLocal(); await loadAll(); render(document.getElementById('q').value);
+});
+
+document.getElementById('addCatBtn').addEventListener('click', ()=>{
+  const name = document.getElementById('newCatName').value.trim();
+  if (!name) { toast('请输入分类名称'); return; }
+  if (settings.categories.includes(name)) { toast('分类已存在'); return; }
+  settings.categories.push(name);
+  document.getElementById('newCatName').value='';
+  saveSettings(); persistLocal(); renderCatList(); render(document.getElementById('q').value); toast('已添加分类');
+});
+
+document.getElementById('catList').addEventListener('click', async e=>{
+  const renameBtn = e.target.closest('[data-rename]');
+  const delBtn = e.target.closest('[data-delcat]');
+  if (renameBtn) {
+    const i = Number(renameBtn.dataset.rename);
+    const row = renameBtn.closest('.cat-row');
+    const old = settings.categories[i];
+    row.innerHTML = `<input class="cat-edit-input" value="${esc(old)}" id="catEditInput">
+      <button class="btn btn-sm btn-primary" id="catSaveBtn">保存</button>`;
+    document.getElementById('catSaveBtn').onclick = ()=>{
+      const nv = document.getElementById('catEditInput').value.trim();
+      if (!nv || settings.categories.includes(nv)) { toast('名称无效或重复'); return; }
+      bookmarks.forEach(b=>{ if (b.cat===old) b.cat=nv; });
+      settings.categories[i] = nv;
+      saveSettings(); persistLocal(); renderCatList(); render(document.getElementById('q').value); toast('已重命名');
+    };
+  }
+  if (delBtn) {
+    const i = Number(delBtn.dataset.delcat);
+    const name = settings.categories[i];
+    const count = bookmarks.filter(b=>b.cat===name).length;
+    if (!confirm(`删除分类"${name}"？${count?`其中 ${count} 个书签将移到"未分类"`:''}`)) return;
+    settings.categories.splice(i,1);
+    if (!settings.categories.includes('未分类')) settings.categories.push('未分类');
+    bookmarks.forEach(b=>{ if (b.cat===name) b.cat='未分类'; });
+    saveSettings(); persistLocal(); renderCatList(); render(document.getElementById('q').value); toast('已删除分类');
+  }
+});
+
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  const data = { bookmarks, settings, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `bookmarks-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('已导出');
+});
+
+document.getElementById('importBtn').addEventListener('click', ()=>document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change', e=>{
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try {
+      const data = JSON.parse(reader.result);
+      if (!Array.isArray(data.bookmarks)) throw new Error('格式不正确：缺少 bookmarks 数组');
+      if (!confirm(`将导入 ${data.bookmarks.length} 个书签，覆盖当前数据，继续？`)) return;
+      bookmarks = data.bookmarks;
+      if (data.settings) settings = { ...settings, ...data.settings };
+      persistLocal(); saveSettings();
+      render(document.getElementById('q').value); renderCatList();
+      toast('导入成功');
+    } catch (err) { toast('导入失败：' + err.message); }
+  };
+  reader.readAsText(file);
+  e.target.value='';
+});
+
+document.getElementById('saveSettingsBtn').addEventListener('click', async ()=>{
+  settings.hotCount = Number(document.getElementById('sHot').value)||8;
+  settings.title = document.getElementById('sTitle').value || '📚 书签导航';
+  await saveSettings(); persistLocal();
+  document.querySelector('.title').innerHTML = esc(settings.title) + '<small>按点击频率自动生成常用列表</small>';
+  toast('设置已保存');
+});
+
+(async ()=>{
+  renderAuth();
+  await loadAll();
+  document.getElementById('sHot').value = settings.hotCount;
+  document.getElementById('sTitle').value = settings.title;
+  document.querySelector('.title').innerHTML = esc(settings.title) + '<small>按点击频率自动生成常用列表</small>';
+  render();
+})();
+</script>
 </body>
 </html>
-
